@@ -1,12 +1,34 @@
 import sys
 import tkinter as tk
+from tkinter import ttk
 from tkinter import filedialog
 import os
 import serial
-from Tinyprog.__init__ import TinyProg,SerialPort
+import serial.tools.list_ports
+from Tinyprog.__init__ import TinyProg
+import sys
+import logging
+
+
+
 
 #ser = SerialPort("COM5")
 
+"""
+def seleccionar_puerto():
+    seleccion = combo.get()
+    etiqueta.config(text=f"Puerto seleccionado: {seleccion}")
+"""
+
+def refrescar_puertos():
+    puertos_serie = [port.device for port in serial.tools.list_ports.comports()]
+    combo['values'] = puertos_serie
+    if len(puertos_serie) > 0:
+        combo.set(puertos_serie[0])
+    else:
+        combo.set("")
+
+    logging.info("Puertos disponibles refrescados\n")
 
 def strict_query_user(question):
     valid = {"yes": True}
@@ -47,25 +69,48 @@ def procesar_archivo():
         # Por ejemplo, puedes imprimir la ruta del archivo
         print("Archivo seleccionado:", archivo)
         #ser = SerialPort('COM5')
-        ser=serial.Serial('COM5', timeout=1.0, writeTimeout=1.0).__enter__()
+        puerto = combo.get()
+        ser=serial.Serial(puerto, timeout=1.0, writeTimeout=1.0).__enter__()
 
         tinyprog = TinyProg(ser)
         bitstream = tinyprog.slurp(archivo)
         addr = tinyprog.meta.userimage_addr_range()[0]
-        print("    Programming at addr {:06x}".format(addr))
+        print("    Programming at addr 0x{:06x}".format(addr))
         if not tinyprog.program_bitstream(addr, bitstream):
-            tinyprog.boot()
-            tinyprog.program()
+            print("Failed to program... exiting")
             sys.exit(1)
+        tinyprog.boot()
+        #tinyprog.program()
+        sys.exit(0)
 
 
 ventana = tk.Tk()
 ventana.title("Program Loader")
 # Configura el tamaño de la ventana
 ventana.geometry("400x200")  # Ancho x Alto en píxeles
+# Obtener la lista de puertos serie disponibles
+puertos_serie = [port.device for port in serial.tools.list_ports.comports()]
 
+# Crear una variable para almacenar la selección
+combo = ttk.Combobox(ventana, values=puertos_serie)
+
+combo.pack(pady=10)
+
+# Botón para mostrar la selección
+boton = tk.Button(ventana, text="Recargar", command=refrescar_puertos)
+boton.pack()
+
+etiqueta = tk.Label(ventana, text="")
+etiqueta.pack(pady=10)
+
+#Boton de carga archivo
 boton = tk.Button(ventana, text="Seleccionar archivo", command=procesar_archivo)
 boton.pack()
+
+
+
+refrescar_puertos()
+
 
 ventana.mainloop()
 
