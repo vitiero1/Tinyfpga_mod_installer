@@ -10,6 +10,20 @@ import sys
 import logging
 
 
+class StdoutRedirector:
+    def __init__(self, text_widget):
+        self.text_widget = text_widget
+
+    def write(self, str):
+        self.text_widget.insert(tk.END, str)
+        self.text_widget.see(tk.END)  # Desplaza automáticamente hacia la última línea
+        self.text_widget.update()  # Forzar una actualización de la ventana
+
+    def flush(self):
+        pass  # Dejar flush vacío, ya que no es necesario
+
+def redirigir_output(text_widget):
+    sys.stdout = StdoutRedirector(text_widget)
 
 
 #ser = SerialPort("COM5")
@@ -78,16 +92,18 @@ def procesar_archivo():
         print("    Programming at addr 0x{:06x}".format(addr))
         if not tinyprog.program_bitstream(addr, bitstream):
             print("Failed to program... exiting")
-            sys.exit(1)
-        tinyprog.boot()
-        #tinyprog.program()
-        sys.exit(0)
+            text_widget.insert(tk.END, "\nFallo al programar\n")
+            #sys.exit(1)
+        else:
+            tinyprog.boot()
+            text_widget.insert(tk.END, "\nProgramado correctamente\n")
+            #sys.exit(0)
 
 
 ventana = tk.Tk()
 ventana.title("Program Loader")
 # Configura el tamaño de la ventana
-ventana.geometry("400x200")  # Ancho x Alto en píxeles
+ventana.geometry("400x600")  # Ancho x Alto en píxeles
 # Obtener la lista de puertos serie disponibles
 puertos_serie = [port.device for port in serial.tools.list_ports.comports()]
 
@@ -108,8 +124,13 @@ boton = tk.Button(ventana, text="Seleccionar archivo", command=procesar_archivo)
 boton.pack()
 
 
+text_widget = tk.Text(ventana, wrap=tk.WORD)
+text_widget.pack()
+
+redirigir_output(text_widget)
 
 refrescar_puertos()
+
 
 
 ventana.mainloop()
