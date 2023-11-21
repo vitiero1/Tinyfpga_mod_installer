@@ -8,6 +8,11 @@ import serial.tools.list_ports
 from Tinyprog.__init__ import TinyProg
 import sys
 import logging
+import subprocess
+import glob
+import shutil
+from time import sleep
+
 
 
 class StdoutRedirector:
@@ -77,27 +82,42 @@ def check_if_overwrite_bootloader(addr, length, userdata_range):
 
 
 def procesar_archivo():
-    archivo = filedialog.askopenfilename(filetypes=[("Archivos binarios", "*.bin")])
-    if archivo:
-        # Realiza la acción que desees con el archivo binario seleccionado
-        # Por ejemplo, puedes imprimir la ruta del archivo
-        print("Archivo seleccionado:", archivo)
-        #ser = SerialPort('COM5')
-        puerto = combo.get()
-        ser=serial.Serial(puerto, timeout=1.0, writeTimeout=1.0).__enter__()
+    #archivo = filedialog.askopenfilename(filetypes=[("Archivos binarios", "*.bin")])
+    directorio = filedialog.askdirectory()
 
-        tinyprog = TinyProg(ser)
-        bitstream = tinyprog.slurp(archivo)
-        addr = tinyprog.meta.userimage_addr_range()[0]
-        print("    Programming at addr 0x{:06x}".format(addr))
-        if not tinyprog.program_bitstream(addr, bitstream):
-            print("Failed to program... exiting")
-            text_widget.insert(tk.END, "\nFallo al programar\n")
-            #sys.exit(1)
+    subprocess.Popen("apio init --board TinyFPGA-BX -y", cwd=directorio)
+    files = glob.glob(directorio+'/*.v')
+    if len(files) > 0:
+        shutil.copyfile('./Resources/pins.pcf', directorio+'/pins.pcf')
+        sleep(2)
+        subprocess.Popen("apio verify", cwd=directorio)
+        sleep(2)
+        subprocess.Popen("apio build", cwd=directorio)
+        sleep(2)
+        archivo = directorio + "/hardware.bin"
+        if os.path.exists(archivo):
+            # Realiza la acción que desees con el archivo binario seleccionado
+            # Por ejemplo, puedes imprimir la ruta del archivo
+            print("Archivo seleccionado:", archivo)
+
+            #ser = SerialPort('COM5')
+            puerto = combo.get()
+            ser=serial.Serial(puerto, timeout=1.0, writeTimeout=1.0).__enter__()
+
+            tinyprog = TinyProg(ser)
+            bitstream = tinyprog.slurp(archivo)
+            addr = tinyprog.meta.userimage_addr_range()[0]
+            print("    Programming at addr 0x{:06x}".format(addr))
+            if not tinyprog.program_bitstream(addr, bitstream):
+                print("Failed to program... exiting")
+                text_widget.insert(tk.END, "\nFallo al programar\n")
+                #sys.exit(1)
+            else:
+                tinyprog.boot()
+                text_widget.insert(tk.END, "\nProgramado correctamente\n")
+                #sys.exit(0)
         else:
-            tinyprog.boot()
-            text_widget.insert(tk.END, "\nProgramado correctamente\n")
-            #sys.exit(0)
+            print("No existen *.v en el directorio")
 
 
 ventana = tk.Tk()
@@ -121,14 +141,13 @@ etiqueta.pack(pady=10)
 
 #Boton de carga archivo
 boton = tk.Button(ventana, text="Seleccionar archivo", command=procesar_archivo)
-boton.pack()
+boton.pack(side="bottom")
 
 
 text_widget = tk.Text(ventana, wrap=tk.WORD)
 text_widget.pack()
 
 redirigir_output(text_widget)
-
 refrescar_puertos()
 
 
