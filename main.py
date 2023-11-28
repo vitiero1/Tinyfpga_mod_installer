@@ -12,7 +12,9 @@ import subprocess
 import glob
 import shutil
 from time import sleep
+import recursos
 
+directorio = None
 
 
 class StdoutRedirector:
@@ -39,6 +41,7 @@ def seleccionar_puerto():
     etiqueta.config(text=f"Puerto seleccionado: {seleccion}")
 """
 
+# Refresca los puertos COM del PC
 def refrescar_puertos():
     puertos_serie = [port.device for port in serial.tools.list_ports.comports()]
     combo['values'] = puertos_serie
@@ -82,14 +85,9 @@ def check_if_overwrite_bootloader(addr, length, userdata_range):
 
 
 def procesar_archivo():
-    #archivo = filedialog.askopenfilename(filetypes=[("Archivos binarios", "*.bin")])
-    directorio = filedialog.askdirectory()
 
-    subprocess.Popen("apio init --board TinyFPGA-BX -y", cwd=directorio)
-    files = glob.glob(directorio+'/*.v')
+    files = glob.glob(directorio + '/*.v')
     if len(files) > 0:
-        shutil.copyfile('./Resources/pins.pcf', directorio+'/pins.pcf')
-        sleep(2)
         subprocess.Popen("apio verify", cwd=directorio)
         sleep(2)
         subprocess.Popen("apio build", cwd=directorio)
@@ -119,29 +117,87 @@ def procesar_archivo():
         else:
             print("No existen *.v en el directorio")
 
+# Seleccion de directorio, crea .init y .pcf
+def sel_folder():
+    global directorio
+    directorio = filedialog.askdirectory()
+    subprocess.Popen("apio init --board TinyFPGA-BX -y", cwd=directorio)
+    #shutil.copyfile('./Resources/pins.pcf', directorio + '/pins.pcf')
+    with open(directorio + "/pins.pcf", 'w') as f:
+        f.write(recursos.pins_pcf)
+
+# Comprueba si existe *.v  lanza apio verify
+def verify():
+    text_widget.delete('1.0',tk.END)
+    files = glob.glob(directorio + '/*.v')
+    if len(files) > 0:
+        subprocess.Popen("apio verify", cwd=directorio)
+        sleep(2)
+    else:
+        print("No existen *.v en el directorio")
+        print("Crea tu archivo verilog")
+
+
+def build():
+    files = glob.glob(directorio + '/*.v')
+    if len(files) > 0:
+        p=subprocess.Popen("apio build", cwd=directorio)
+        p.wait()
+        sleep(2)
+        archivo = directorio + "/hardware.bin"
+        if os.path.exists(archivo):
+            # Realiza la acción que desees con el archivo binario seleccionado
+            # Por ejemplo, puedes imprimir la ruta del archivo
+            print("Archivo seleccionado:", archivo)
+
+            # ser = SerialPort('COM5')
+            puerto = combo.get()
+            ser = serial.Serial(puerto, timeout=1.0, writeTimeout=1.0).__enter__()
+
+            tinyprog = TinyProg(ser)
+            bitstream = tinyprog.slurp(archivo)
+            addr = tinyprog.meta.userimage_addr_range()[0]
+            print("    Programming at addr 0x{:06x}".format(addr))
+            if not tinyprog.program_bitstream(addr, bitstream):
+                print("Failed to program... exiting")
+                text_widget.insert(tk.END, "\nFallo al programar\n")
+                # sys.exit(1)
+            else:
+                tinyprog.boot()
+                text_widget.insert(tk.END, "\nProgramado correctamente\n")
+                # sys.exit(0)
+
+
 
 ventana = tk.Tk()
 ventana.title("Program Loader")
 # Configura el tamaño de la ventana
-ventana.geometry("400x600")  # Ancho x Alto en píxeles
+ventana.geometry("400x400")  # Ancho x Alto en píxeles
 # Obtener la lista de puertos serie disponibles
 puertos_serie = [port.device for port in serial.tools.list_ports.comports()]
 
 # Crear una variable para almacenar la selección
 combo = ttk.Combobox(ventana, values=puertos_serie)
-
 combo.pack(pady=10)
 
 # Botón para mostrar la selección
-boton = tk.Button(ventana, text="Recargar", command=refrescar_puertos)
-boton.pack()
+btn_recargar = tk.Button(ventana, text="Recargar", command=refrescar_puertos)
+btn_recargar.pack()
 
 etiqueta = tk.Label(ventana, text="")
 etiqueta.pack(pady=10)
 
-#Boton de carga archivo
-boton = tk.Button(ventana, text="Seleccionar archivo", command=procesar_archivo)
-boton.pack(side="bottom")
+#Botón Seleccionar Carpeta
+btn_folder = tk.Button(ventana, text="Seleccionar carpeta", command=sel_folder)
+btn_folder.pack()
+
+#Boton Verificar
+btn_verify = tk.Button(ventana, text="Verificar",command=verify)
+btn_verify.pack()
+
+#Boton Build & Upload
+btn_build = tk.Button(ventana, text="Build & Upload",command=build)
+btn_build.pack()
 
 
 text_widget = tk.Text(ventana, wrap=tk.WORD)
