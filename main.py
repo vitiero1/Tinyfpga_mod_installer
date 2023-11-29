@@ -2,6 +2,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
+from tkinter import PhotoImage
 import os
 import serial
 import serial.tools.list_ports
@@ -83,7 +84,7 @@ def check_if_overwrite_bootloader(addr, length, userdata_range):
     return True
 
 
-
+"""
 def procesar_archivo():
 
     files = glob.glob(directorio + '/*.v')
@@ -116,7 +117,7 @@ def procesar_archivo():
                 #sys.exit(0)
         else:
             print("No existen *.v en el directorio")
-
+"""
 # Seleccion de directorio, crea .init y .pcf
 def sel_folder():
     global directorio
@@ -167,46 +168,93 @@ def build():
                 text_widget.insert(tk.END, "\nProgramado correctamente\n")
                 # sys.exit(0)
 
+def resource_path(relative_path):
 
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+"""Compilar .exe con el comando pyinstaller --onefile --add-data "Resources;Resources" main.py """
 
 ventana = tk.Tk()
-ventana.title("Program Loader")
-# Configura el tamaño de la ventana
+ventana.title("TinyFPGA Program Loader")
+# Configura la ventana
 ventana.geometry("400x400")  # Ancho x Alto en píxeles
+ventana.resizable(False,False) #Fija la ventana
+color="#23343c" #color fondo de los frames
+
+
+#Datos de icono
+icon_path = resource_path(os.path.join("Resources","icon.ico"))
+ventana.iconbitmap(icon_path)
+
+
+# Background ventana
+img_bg= PhotoImage(file=resource_path(os.path.join("Resources","tinyfpga_logo.png")))
+img_width = img_bg.width()
+img_height = img_bg.height()
+
+x_position = (400 - img_width) // 2
+y_position = (400 - img_height) // 2
+
+canvas_bg = tk.Canvas(ventana, width=400, height=400)
+canvas_bg.pack()
+
+canvas_bg.create_image(x_position, y_position, anchor=tk.NW, image=img_bg)
+
 # Obtener la lista de puertos serie disponibles
 puertos_serie = [port.device for port in serial.tools.list_ports.comports()]
 
+
+frame_top = tk.Frame(ventana, bg=color)
+frame_top.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
+
+
+
+frame_sel = tk.Frame(ventana, bg=color)
+frame_sel.place(relx=0.5, rely=0.3, anchor=tk.CENTER)
+
+
+frame_ver_build = tk.Frame(ventana,bg=color)
+frame_ver_build.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+frame_text_widget = tk.Frame(ventana)
+frame_text_widget.place(relx=0.5, rely=0.8, anchor=tk.CENTER)
+
+
 # Crear una variable para almacenar la selección
-combo = ttk.Combobox(ventana, values=puertos_serie)
-combo.pack(pady=10)
+combo = ttk.Combobox(frame_top, values=puertos_serie)
+combo.pack(side=tk.LEFT, padx=10)
 
 # Botón para mostrar la selección
-btn_recargar = tk.Button(ventana, text="Recargar", command=refrescar_puertos)
-btn_recargar.pack()
+btn_recargar = tk.Button(frame_top, text="Recargar", command=refrescar_puertos)
+btn_recargar.pack(side=tk.LEFT, padx=10)
 
 etiqueta = tk.Label(ventana, text="")
-etiqueta.pack(pady=10)
+etiqueta.pack(side=tk.BOTTOM)
 
 #Botón Seleccionar Carpeta
-btn_folder = tk.Button(ventana, text="Seleccionar carpeta", command=sel_folder)
-btn_folder.pack()
+btn_folder = tk.Button(frame_sel, text="Seleccionar carpeta", command=sel_folder)
+btn_folder.pack(side=tk.TOP, pady=(10 , 5))
+
 
 #Boton Verificar
-btn_verify = tk.Button(ventana, text="Verificar",command=verify)
-btn_verify.pack()
+btn_verify = tk.Button(frame_ver_build, text="Verificar",command=verify)
+btn_verify.pack(side=tk.LEFT, padx=10)
 
 #Boton Build & Upload
-btn_build = tk.Button(ventana, text="Build & Upload",command=build)
-btn_build.pack()
+btn_build = tk.Button(frame_ver_build, text="Build & Upload",command=build)
+btn_build.pack(side=tk.LEFT, padx=10)
 
 
-text_widget = tk.Text(ventana, wrap=tk.WORD)
+text_widget = tk.Text(frame_text_widget, wrap=tk.WORD, height= 3, width=40)
 text_widget.pack()
 
 redirigir_output(text_widget)
 refrescar_puertos()
-
-
 
 ventana.mainloop()
 
