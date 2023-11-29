@@ -168,6 +168,7 @@ def build():
                 text_widget.insert(tk.END, "\nProgramado correctamente\n")
                 # sys.exit(0)
 
+# Funcion que se encarga de guardar el path de las imagenes
 def resource_path(relative_path):
 
     try:
