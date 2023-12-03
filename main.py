@@ -178,7 +178,7 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-"""Compilar .exe con el comando pyinstaller --onefile --add-data "Resources;Resources" main.py """
+""" Compilar .exe con el comando pyinstaller --onefile --add-data "Resources;Resources" main.py"""
 
 ventana = tk.Tk()
 ventana.title("TinyFPGA Program Loader")
